@@ -1,0 +1,8 @@
+{
+  "name": "Mis Finanzas",
+  "description": "Centro financiero personal para registrar ingresos, gastos, objetivos de ahorro, presupuestos y sincronización en la nube con un asistente inteligente de IA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
