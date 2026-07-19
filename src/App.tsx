@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { FinanceData, Transaction, Account, Goal, Budget, FutureExpense } from "./types";
 import { fetchFinanceData, saveFinanceData } from "./utils/api";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "./lib/firebase.ts";
 
 // Subcomponents
 import Dashboard from "./components/Dashboard";
@@ -27,16 +29,32 @@ import Goals from "./components/Goals";
 import Budgets from "./components/Budgets";
 import CalendarView from "./components/CalendarView";
 import Stats from "./components/Stats";
+import Login from "./components/Login";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [data, setData] = useState<FinanceData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [user, setUser] = useState<any | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('synced');
   const [openQuickModal, setOpenQuickModal] = useState<'none' | 'income' | 'expense'>('none');
 
-  // Load finance data on mount
+  // Listen to Firebase Auth state changes
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Load finance data when user logs in
+  useEffect(() => {
+    if (!user) {
+      setData(null);
+      return;
+    }
     async function load() {
       setLoading(true);
       const loadedData = await fetchFinanceData();
@@ -44,10 +62,11 @@ export default function App() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [user]);
 
   // Sync back to database whenever data state changes
   const syncData = async (updatedData: FinanceData) => {
+    if (!user) return;
     setSyncStatus('syncing');
     const success = await saveFinanceData(updatedData);
     if (success) {
@@ -57,14 +76,30 @@ export default function App() {
     }
   };
 
-  if (loading || !data) {
+  if (authLoading) {
     return (
-      <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center gap-4 z-50">
+      <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center gap-4 z-50 font-sans">
         <div className="relative">
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
           <Sparkles className="w-6 h-6 text-blue-400 absolute inset-0 m-auto animate-pulse" />
         </div>
-        <p className="text-slate-400 text-sm font-semibold tracking-wider animate-pulse uppercase">Cargando tu Centro Financiero...</p>
+        <p className="text-slate-400 text-xs font-bold tracking-widest animate-pulse uppercase">Iniciando sesión segura...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  if (loading || !data) {
+    return (
+      <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center gap-4 z-50 font-sans">
+        <div className="relative">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <Sparkles className="w-6 h-6 text-blue-400 absolute inset-0 m-auto animate-pulse" />
+        </div>
+        <p className="text-slate-400 text-xs font-bold tracking-widest animate-pulse uppercase">Cargando tu Centro Financiero...</p>
       </div>
     );
   }
@@ -545,9 +580,13 @@ export default function App() {
               )}
             </div>
 
-            <div className="w-8.5 h-8.5 bg-brand-panel-light hover:bg-brand-panel-light/80 rounded-xl flex items-center justify-center border border-brand-border shadow cursor-pointer">
-              <User className="w-4 h-4 text-slate-300" />
-            </div>
+            <button 
+              onClick={() => signOut(auth)}
+              title="Cerrar Sesión"
+              className="w-8.5 h-8.5 bg-red-500/10 hover:bg-red-500/20 rounded-xl flex items-center justify-center border border-red-500/20 shadow cursor-pointer text-red-400 hover:text-red-300 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </header>

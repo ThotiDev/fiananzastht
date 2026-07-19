@@ -1,6 +1,24 @@
 import { FinanceData } from "../types";
+import { auth } from "../lib/firebase.ts";
 
 const LOCAL_STORAGE_KEY = "mis_finanzas_local_data";
+
+// Retrieve headers with Firebase ID token
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    try {
+      const token = await currentUser.getIdToken(true);
+      headers["Authorization"] = `Bearer ${token}`;
+    } catch (err) {
+      console.error("Error getting Firebase ID token:", err);
+    }
+  }
+  return headers;
+}
 
 // Default local initial data in case the API is completely unreachable
 const defaultLocalData: FinanceData = {
@@ -58,7 +76,8 @@ const defaultLocalData: FinanceData = {
 
 export async function fetchFinanceData(): Promise<FinanceData> {
   try {
-    const response = await fetch("/api/finance");
+    const headers = await getAuthHeaders();
+    const response = await fetch("/api/finance", { headers });
     if (!response.ok) {
       throw new Error("Server response error");
     }
@@ -85,11 +104,10 @@ export async function saveFinanceData(data: FinanceData): Promise<boolean> {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
   
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch("/api/finance", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(data),
     });
     return response.ok;
@@ -107,11 +125,10 @@ export interface CoachResponse {
 
 export async function getAICoachReport(): Promise<CoachResponse> {
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch("/api/gemini/coach", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      }
+      headers,
     });
     if (!response.ok) {
       throw new Error("Coach API response error");
